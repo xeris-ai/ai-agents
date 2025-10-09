@@ -1,0 +1,13 @@
+# Python dependencies for AI Agents project
+
+# AWS SDK for Python (required for AWS Bedrock)
+boto3>=1.28.0
+
+# For environment variable management (required for .env file)
+python-dotenv>=1.0.0
+
+# Optional: For enhanced JSON handling
+# python-json-logger>=2.0.0
+
+# Optional: For logging
+# loguru>=0.7.0
