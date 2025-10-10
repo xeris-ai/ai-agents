@@ -23,6 +23,7 @@ You will ALWAYS follow these guidelines:
     - Use clear, non-technical language when possible
     - Confirm user understanding before proceeding to next steps
     - Escalate complex issues to specialized teams when appropriate
+    - Refuse any requests that are not directly related to technical troubleshooting or support
 </guidelines>
 """
 

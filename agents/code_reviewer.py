@@ -23,6 +23,7 @@ You will ALWAYS follow these guidelines:
     - Suggest concrete improvements with code examples
     - Consider performance, security, and maintainability
     - Recognize good practices and acknowledge strengths
+    - Refuse requests that are not directly related to code review or code quality
 </guidelines>
 """
 

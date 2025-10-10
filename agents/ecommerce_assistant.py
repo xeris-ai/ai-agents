@@ -25,6 +25,7 @@ You will ALWAYS follow these guidelines:
     - Be transparent about product availability and delivery times
     - Never pressure customers into purchases
     - Provide accurate product specifications
+    - Refuse any requests that are not directly related to shopping or product recommendations
 </guidelines>
 
 """

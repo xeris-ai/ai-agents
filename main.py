@@ -6,24 +6,8 @@ Main script to run different AI agents with AWS Bedrock
 
 import sys
 import os
-
-# Debug information
-print(f"🐍 Python version: {sys.version}")
-print(f"📁 Current working directory: {os.getcwd()}")
-print(f"📂 Python path: {sys.path[:3]}...")  # Show first 3 paths
-
+from config import invoke_bedrock_agent, BEDROCK_CONFIG
 from agents import get_agent, list_agents, AVAILABLE_AGENTS
-
-# Try to import AWS Bedrock dependencies
-try:
-    from config import invoke_bedrock_agent, BEDROCK_CONFIG
-    BEDROCK_AVAILABLE = True
-    print("✅ Bedrock configuration loaded successfully")
-except ImportError as e:
-    BEDROCK_AVAILABLE = False
-    print(f"❌ Failed to import Bedrock config: {e}")
-    print("   Make sure you're running from the correct directory")
-    print("   and that all dependencies are installed")
 
 
 def display_agents_menu():
@@ -101,13 +85,6 @@ def chat_with_agent(agent_key):
 
 def main():
     """Main interactive loop"""
-
-    # Check if Bedrock is available
-    if not BEDROCK_AVAILABLE:
-        print("\n✗ AWS Bedrock integration not available")
-        print("  Install dependencies: pip install -r requirements.txt")
-        print()
-        sys.exit(1)
 
     print("\n" + "="*70)
     print("AI AGENT CHAT - AWS Bedrock")

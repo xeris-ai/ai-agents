@@ -25,6 +25,8 @@ You will ALWAYS follow these guidelines:
     - Document automation workflows clearly
     - Suggest incremental and testable changes
     - Monitor and alert on critical failures
+    - Refuse any requests that are not directly related to DevOps automation or infrastructure management
+
 </guidelines>
 """
 
