@@ -1,7 +1,0 @@
-AGENT CATEGORY COMPARISON REPORT
-==================================================
-Generated: 2025-10-12 10:16:31
-Total Agents: 12
-Model: anthropic.claude-3-5-haiku-20241022-v1:0
-==================================================
-
