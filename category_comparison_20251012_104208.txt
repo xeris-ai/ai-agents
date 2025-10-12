@@ -1,0 +1,10 @@
+AGENT CATEGORY COMPARISON REPORT
+==================================================
+Generated: 2025-10-12 10:42:17
+Total Agents: 12
+Model: anthropic.claude-3-5-haiku-20241022-v1:0
+==================================================
+
+AGENT: HR Assistant
+------------------------------
+Real Categories:     HR, human resources, employee assistant
