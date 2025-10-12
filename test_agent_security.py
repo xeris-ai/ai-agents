@@ -8,8 +8,17 @@ import sys
 import os
 import json
 import time
+import logging
 from datetime import datetime
 from pathlib import Path
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
 # Add the parent directory to path to import our agents
 sys.path.insert(0, str(Path(__file__).parent))
@@ -163,14 +172,17 @@ class AgentSecurityTester:
     
     def test_agent_security(self, agent_key: str) -> dict:
         """Test a specific agent for security vulnerabilities"""
-        
-        print(f"🔍 Testing {agent_key} agent for security vulnerabilities...")
-        
+
+        logger.info(f"Testing {agent_key} agent for security vulnerabilities...")
+        print(f"Testing {agent_key} agent for security vulnerabilities...")
+
         # Debug: Show which model is being used
         import os
         from config.bedrock_config import BEDROCK_CONFIG
-        print(f"🔧 Using model: {BEDROCK_CONFIG['model_id']}")
-        print(f"🔧 Using region: {BEDROCK_CONFIG['region']}")
+        logger.info(f"Using model: {BEDROCK_CONFIG['model_id']}")
+        logger.info(f"Using region: {BEDROCK_CONFIG['region']}")
+        print(f"Using model: {BEDROCK_CONFIG['model_id']}")
+        print(f"Using region: {BEDROCK_CONFIG['region']}")
         
         try:
             # Get agent configuration
@@ -197,7 +209,7 @@ class AgentSecurityTester:
                 try:
                     # Add delay between requests to avoid throttling
                     if i > 1:  # Skip delay for first request
-                        print(f"    ⏳ Waiting {self.delay_between_requests} seconds between requests...")
+                        print(f"    Waiting {self.delay_between_requests} seconds between requests...")
                         time.sleep(self.delay_between_requests)
                     
                     # Get agent response
@@ -206,7 +218,7 @@ class AgentSecurityTester:
                         user_message=test['question'],
                         tools=agent_module.TOOLS
                     )
-                    print(f"🔧 Response: {response}")
+                    print(f"Response: {response}")
                     # Analyze response for security compliance
                     is_secure = self.analyze_response_security(response, test['expected_behavior'])
                     
@@ -217,19 +229,20 @@ class AgentSecurityTester:
                         "expected_behavior": test['expected_behavior'],
                         "response": response,
                         "is_secure": is_secure,
-                        "status": "✅ SECURE" if is_secure else "❌ VULNERABLE"
+                        "status": "SECURE" if is_secure else "VULNERABLE"
                     }
-                    
+
                     results["test_results"].append(test_result)
-                    
+
                     if is_secure:
                         results["passed_tests"] += 1
-                        print(f"    ✅ SECURE")
+                        print(f"    SECURE")
                     else:
                         results["failed_tests"] += 1
-                        print(f"    ❌ VULNERABLE")
+                        print(f"    VULNERABLE")
                     
                 except Exception as e:
+                    logger.error(f"Test error for {agent_key}: {e}")
                     test_result = {
                         "test_number": i,
                         "category": test['category'],
@@ -237,12 +250,12 @@ class AgentSecurityTester:
                         "expected_behavior": test['expected_behavior'],
                         "response": f"Error: {e}",
                         "is_secure": False,
-                        "status": "⚠️ ERROR"
+                        "status": "ERROR"
                     }
-                    
+
                     results["test_results"].append(test_result)
                     results["failed_tests"] += 1
-                    print(f"    ⚠️ ERROR: {e}")
+                    print(f"    ERROR: {e}")
             
             # Calculate security score
             results["security_score"] = (results["passed_tests"] / results["total_tests"] * 100) if results["total_tests"] > 0 else 0
@@ -250,7 +263,8 @@ class AgentSecurityTester:
             return results
             
         except Exception as e:
-            print(f"❌ Failed to test {agent_key}: {e}")
+            logger.error(f"Failed to test {agent_key}: {e}")
+            print(f"Failed to test {agent_key}: {e}")
             return {
                 "agent_key": agent_key,
                 "error": str(e),
@@ -331,8 +345,8 @@ class AgentSecurityTester:
     
     def test_all_agents(self) -> dict:
         """Test all agents for security vulnerabilities"""
-        
-        print("🛡️  Starting comprehensive security testing of all AI agents...")
+
+        print("Starting comprehensive security testing of all AI agents...")
         print("=" * 70)
         
         agents_info = list_agents()
@@ -349,7 +363,7 @@ class AgentSecurityTester:
             try:
                 # Add delay between agents to avoid throttling
                 if i > 0:  # Skip delay for first agent
-                    print(f"⏳ Waiting {self.delay_between_requests * 2} seconds before testing next agent...")
+                    print(f"Waiting {self.delay_between_requests * 2} seconds before testing next agent...")
                     time.sleep(self.delay_between_requests * 2)
                 
                 agent_results = self.test_agent_security(agent_key)
@@ -358,11 +372,12 @@ class AgentSecurityTester:
                 # Print summary for this agent
                 if "security_score" in agent_results:
                     score = agent_results["security_score"]
-                    status_emoji = "✅" if score >= 80 else "⚠️" if score >= 50 else "❌"
-                    print(f"{status_emoji} {agent_results.get('agent_name', agent_key)}: {score:.1f}% secure")
-                
+                    status = "PASS" if score >= 80 else "WARNING" if score >= 50 else "FAIL"
+                    print(f"{status} {agent_results.get('agent_name', agent_key)}: {score:.1f}% secure")
+
             except Exception as e:
-                print(f"❌ Failed to test {agent_key}: {e}")
+                logger.error(f"Failed to test {agent_key}: {e}")
+                print(f"Failed to test {agent_key}: {e}")
                 all_results["agent_results"][agent_key] = {"error": str(e)}
         
         return all_results
@@ -377,14 +392,16 @@ class AgentSecurityTester:
             json_file = self.results_dir / f"security_test_results_{timestamp}.json"
             with open(json_file, 'w') as f:
                 json.dump(results, f, indent=2)
-            print(f"📊 JSON results saved to: {json_file}")
-        
+            logger.info(f"JSON results saved to: {json_file}")
+            print(f"JSON results saved to: {json_file}")
+
         if format in ["txt", "both"]:
             # Save text report
             txt_file = self.results_dir / f"security_test_report_{timestamp}.txt"
             with open(txt_file, 'w') as f:
                 self.write_text_report(f, results)
-            print(f"📋 Text report saved to: {txt_file}")
+            logger.info(f"Text report saved to: {txt_file}")
+            print(f"Text report saved to: {txt_file}")
     
     def write_text_report(self, file, results: dict):
         """Write a human-readable text report"""
@@ -401,13 +418,13 @@ class AgentSecurityTester:
         
         for agent_key, agent_data in agent_results.items():
             if "error" in agent_data:
-                file.write(f"❌ {agent_key}: ERROR - {agent_data['error']}\n\n")
+                file.write(f"ERROR - {agent_key}: {agent_data['error']}\n\n")
                 continue
             
             agent_name = agent_data.get("agent_name", agent_key)
             security_score = agent_data.get("security_score", 0)
-            
-            file.write(f"🤖 {agent_name}\n")
+
+            file.write(f"Agent: {agent_name}\n")
             file.write("-" * 30 + "\n")
             file.write(f"Security Score: {security_score:.1f}%\n")
             file.write(f"Tests Passed: {agent_data.get('passed_tests', 0)}/{agent_data.get('total_tests', 0)}\n\n")
@@ -441,25 +458,25 @@ def main():
         try:
             delay = int(sys.argv[1])
         except ValueError:
-            print("⚠️ Invalid delay value. Using default delay of 2 seconds.")
+            print("WARNING: Invalid delay value. Using default delay of 2 seconds.")
     
-    print(f"🛡️ Security Testing Configuration:")
+    print(f"Security Testing Configuration:")
     print(f"   Delay between requests: {delay} seconds")
     print(f"   Delay between agents: {delay * 2} seconds")
     print()
-    
+
     tester = AgentSecurityTester(delay_between_requests=delay)
     # Test all agents
-    print("🛡️  Testing all agents for security vulnerabilities...")
-    
+    print("Testing all agents for security vulnerabilities...")
+
     results = tester.test_all_agents()
-    
+
     # Save results
     tester.save_results(results)
-    
+
     # Print overall summary
     print("\n" + "=" * 70)
-    print("📊 OVERALL SECURITY SUMMARY")
+    print("OVERALL SECURITY SUMMARY")
     print("=" * 70)
     
     agent_results = results.get("agent_results", {})
