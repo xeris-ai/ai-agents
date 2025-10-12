@@ -6,8 +6,17 @@ Main script to run different AI agents with AWS Bedrock
 
 import sys
 import os
+import logging
 from config import invoke_bedrock_agent, BEDROCK_CONFIG
 from agents import get_agent, list_agents, AVAILABLE_AGENTS
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
 
 def display_agents_menu():
@@ -15,19 +24,19 @@ def display_agents_menu():
     agents_info = list_agents()
     agents_list = list(agents_info.items())
 
-    print("\n" + "="*70)
-    print("AVAILABLE AGENTS")
-    print("="*70 + "\n")
+    logger.info("\n" + "="*70)
+    logger.info("AVAILABLE AGENTS")
+    logger.info("="*70 + "\n")
 
     for idx, (key, info) in enumerate(agents_list, 1):
-        tools_indicator = "✓" if info["has_tools"] == "yes" else "✗"
-        print(f"[{idx}] {info['name']}")
-        print(f"    Key: {key}")
-        print(f"    Description: {info['description']}")
-        print(f"    Tools: {tools_indicator}")
-        print()
+        tools_indicator = "YES" if info["has_tools"] == "yes" else "NO"
+        logger.info(f"[{idx}] {info['name']}")
+        logger.info(f"    Key: {key}")
+        logger.info(f"    Description: {info['description']}")
+        logger.info(f"    Tools: {tools_indicator}")
+        logger.info("")
 
-    print("="*70)
+    logger.info("="*70)
     return agents_list
 
 
@@ -35,24 +44,24 @@ def chat_with_agent(agent_key):
     """Interactive chat session with selected agent"""
     agent_module = get_agent(agent_key)
 
-    print("\n" + "="*70)
-    print(f"CHATTING WITH: {agent_module.AGENT_CONFIG['name']}")
-    print("="*70)
-    print(f"\nDescription: {agent_module.AGENT_CONFIG['description']}")
-    print(f"Categories: {', '.join(agent_module.AGENT_CONFIG['categories'])}")
-    print(f"Tools Available: {len(agent_module.TOOLS)}")
+    logger.info("\n" + "="*70)
+    logger.info(f"CHATTING WITH: {agent_module.AGENT_CONFIG['name']}")
+    logger.info("="*70)
+    logger.info(f"\nDescription: {agent_module.AGENT_CONFIG['description']}")
+    logger.info(f"Categories: {', '.join(agent_module.AGENT_CONFIG['categories'])}")
+    logger.info(f"Tools Available: {len(agent_module.TOOLS)}")
     if agent_module.TOOLS:
-        print(f"Tools: {', '.join(agent_module.TOOLS[:3])}{'...' if len(agent_module.TOOLS) > 3 else ''}")
+        logger.info(f"Tools: {', '.join(agent_module.TOOLS[:3])}{'...' if len(agent_module.TOOLS) > 3 else ''}")
 
-    print("\n" + "-"*70)
-    print("Configuration:")
-    print(f"  Region: {BEDROCK_CONFIG['region']}")
-    print(f"  Model: {BEDROCK_CONFIG['model_id']}")
-    print(f"  Max Tokens: {BEDROCK_CONFIG['max_tokens']}")
-    print("-"*70)
+    logger.info("\n" + "-"*70)
+    logger.info("Configuration:")
+    logger.info(f"  Region: {BEDROCK_CONFIG['region']}")
+    logger.info(f"  Model: {BEDROCK_CONFIG['model_id']}")
+    logger.info(f"  Max Tokens: {BEDROCK_CONFIG['max_tokens']}")
+    logger.info("-"*70)
 
-    print("\nType your message (or 'quit' to exit, 'back' to choose another agent)")
-    print("="*70 + "\n")
+    logger.info("\nType your message (or 'quit' to exit, 'back' to choose another agent)")
+    logger.info("="*70 + "\n")
 
     while True:
         try:
@@ -61,7 +70,7 @@ def chat_with_agent(agent_key):
             if not user_message:
                 continue
 
-            print(f"\n{agent_module.AGENT_CONFIG['name']}: ", end="", flush=True)
+            logger.info(f"\n{agent_module.AGENT_CONFIG['name']}: ", end="", flush=True)
 
             try:
                 response = invoke_bedrock_agent(
@@ -69,26 +78,27 @@ def chat_with_agent(agent_key):
                     user_message=user_message,
                     tools=agent_module.TOOLS
                 )
-                print(response)
+                logger.info(response)
 
             except Exception as e:
-                print(f"\n✗ Error calling Bedrock: {e}")
-            print()  # Empty line for readability
+                logger.error(f"Error calling Bedrock: {e}")
+                logger.error(f"\nError calling Bedrock: {e}")
+            logger.info("")  # Empty line for readability
 
         except KeyboardInterrupt:
-            print("\n\nSession interrupted. Returning to menu...\n")
+            logger.info("\n\nSession interrupted. Returning to menu...\n")
             return True
         except EOFError:
-            print("\n\nGoodbye! 👋\n")
+            logger.info("\n\nGoodbye!\n")
             return False
 
 
 def main():
     """Main interactive loop"""
 
-    print("\n" + "="*70)
-    print("AI AGENT CHAT - AWS Bedrock")
-    print("="*70)
+    logger.info("\n" + "="*70)
+    logger.info("AI AGENT CHAT - AWS Bedrock")
+    logger.info("="*70)
 
     while True:
         # Display menu
@@ -99,7 +109,7 @@ def main():
             choice = input("Select agent number (or 'q' to quit): ").strip()
 
             if choice.lower() in ['q', 'quit', 'exit']:
-                print("\nGoodbye! 👋\n")
+                logger.info("\nGoodbye!\n")
                 break
 
             # Validate selection
@@ -110,15 +120,15 @@ def main():
                     # Start chat with selected agent
                     chat_with_agent(agent_key)
                 else:
-                    print(f"\n✗ Invalid selection. Please choose 1-{len(agents_list)}\n")
+                    logger.warning(f"\nInvalid selection. Please choose 1-{len(agents_list)}\n")
             except ValueError:
-                print("\n✗ Please enter a valid number\n")
+                logger.warning("\nPlease enter a valid number\n")
 
         except KeyboardInterrupt:
-            print("\n\nGoodbye! 👋\n")
+            logger.info("\n\nGoodbye!\n")
             break
         except EOFError:
-            print("\n\nGoodbye! 👋\n")
+            logger.info("\n\nGoodbye!\n")
             break
 
 

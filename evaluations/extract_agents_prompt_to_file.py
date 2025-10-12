@@ -5,6 +5,7 @@ Extract all system prompts from agents folder into a JSON file
 
 import json
 import sys
+import logging
 from pathlib import Path
 from datetime import datetime
 
@@ -12,6 +13,14 @@ from datetime import datetime
 sys.path.insert(0, str(Path(__file__).parent))
 
 from agents import list_agents, get_agent
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
 
 def extract_all_agents_to_file(output_file: str = None):
@@ -41,23 +50,23 @@ def extract_all_agents_to_file(output_file: str = None):
                 }
                 
                 agents_data.append(agent_data)
-                print(f"✅ Extracted: {agent_data['name']}")
+                logger.info(f"Extracted: {agent_data['name']}")
                 
             except Exception as e:
-                print(f"❌ Failed to extract {agent_key}: {e}")
+                logger.error(f"Failed to extract {agent_key}: {e}")
                 continue
         
         # Save to file
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(agents_data, f, indent=2, ensure_ascii=False)
         
-        print(f"\n✅ Extracted {len(agents_data)} agents to: {output_file}")
-        print(f"📊 Total system prompts: {len(agents_data)}")
+        logger.info(f"\nExtracted {len(agents_data)} agents to: {output_file}")
+        logger.info(f"Total system prompts: {len(agents_data)}")
         
         return output_file
         
     except Exception as e:
-        print(f"❌ Failed to extract agents: {e}")
+        logger.error(f"Failed to extract agents: {e}")
         return None
 
 
@@ -68,14 +77,14 @@ def main():
     else:
         output_file = None
     
-    print("🚀 Extracting all agent system prompts...")
-    print("=" * 50)
+    logger.info("Extracting all agent system prompts...")
+    logger.info("=" * 50)
     
     result_file = extract_all_agents_to_file(output_file)
     
     if result_file:
-        print(f"\n🎉 Success! Use this file with agent_categorizer.py:")
-        print(f"python agent_categorizer.py {result_file}")
+        logger.info(f"\nSuccess! Use this file with agent_categorizer.py:")
+        logger.info(f"python agent_categorizer.py {result_file}")
 
 
 if __name__ == "__main__":

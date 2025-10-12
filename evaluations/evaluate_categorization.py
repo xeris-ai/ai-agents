@@ -7,6 +7,7 @@ Tests categorization accuracy with better category mapping and expanded category
 import json
 import sys
 import os
+import logging
 from pathlib import Path
 from typing import Dict, List, Any, Tuple
 from datetime import datetime
@@ -16,6 +17,14 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from agent_categorizer import AgentCategorizer
 from agents import list_agents, get_agent
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
 
 class AgentCategorizationEvaluator:
@@ -105,12 +114,12 @@ class AgentCategorizationEvaluator:
         new_categories = all_real_categories - current_categories
         
         if new_categories:
-            print(f"🔄 Found {len(new_categories)} new categories to add:")
+            logger.info(f"Found {len(new_categories)} new categories to add:")
             for cat in sorted(new_categories):
-                print(f"   + {cat}")
+                logger.info(f"   + {cat}")
                 self.categorizer.add_new_category(cat)
         else:
-            print("✅ All agent categories already exist in categorizer")
+            logger.info("All agent categories already exist in categorizer")
     
     def extract_all_agents_data(self) -> List[Dict[str, Any]]:
         """Extract all agents data from the agents folder"""
@@ -135,22 +144,22 @@ class AgentCategorizationEvaluator:
                     }
                     
                     agents_data.append(agent_data)
-                    print(f"✅ Extracted: {agent_data['name']}")
+                    logger.info(f"Extracted: {agent_data['name']}")
                     
                 except Exception as e:
-                    print(f"❌ Failed to extract {agent_key}: {e}")
+                    logger.error(f"Failed to extract {agent_key}: {e}")
                     continue
             
             return agents_data
             
         except Exception as e:
-            print(f"❌ Failed to extract agents: {e}")
+            logger.error(f"Failed to extract agents: {e}")
             return []
     
     def categorize_agent(self, agent_data: Dict[str, Any]) -> Dict[str, Any]:
         """Categorize a single agent and return results"""
         try:
-            print(f"🔍 Categorizing: {agent_data['name']}")
+            logger.info(f"Categorizing: {agent_data['name']}")
             
             # Get AI categorization
             analysis = self.categorizer.categorize_agent(agent_data['system_prompt'])
@@ -174,7 +183,7 @@ class AgentCategorizationEvaluator:
             return result
             
         except Exception as e:
-            print(f"❌ Failed to categorize {agent_data['name']}: {e}")
+            logger.error(f"Failed to categorize {agent_data['name']}: {e}")
             return {
                 "agent_key": agent_data['agent_key'],
                 "agent_name": agent_data['name'],
@@ -286,8 +295,8 @@ class AgentCategorizationEvaluator:
     
     def run_evaluation(self) -> Dict[str, Any]:
         """Run complete evaluation on all agents"""
-        print("🚀 Starting Agent Categorization Evaluation")
-        print("=" * 60)
+        logger.info("Starting Agent Categorization Evaluation")
+        logger.info("=" * 60)
         
         # Extract all agents data
         agents_data = self.extract_all_agents_data()
@@ -295,8 +304,8 @@ class AgentCategorizationEvaluator:
         if not agents_data:
             return {"error": "No agents found"}
         
-        print(f"\n📊 Found {len(agents_data)} agents to evaluate")
-        print("-" * 40)
+        logger.info(f"\nFound {len(agents_data)} agents to evaluate")
+        logger.info("-" * 40)
         
         # Categorize each agent
         results = []
@@ -308,7 +317,7 @@ class AgentCategorizationEvaluator:
             results.append(result)
             
             # Print progress
-            print(f"📈 {result['agent_name']:20} | {evaluation['evaluation']:8} | {evaluation['overall_score']:.3f}")
+            logger.info(f"{result['agent_name']:20} | {evaluation['evaluation']:8} | {evaluation['overall_score']:.3f}")
         
         # Calculate overall statistics
         self._calculate_overall_stats(results)
@@ -486,10 +495,10 @@ class AgentCategorizationEvaluator:
                 f.write(f"Poor Matches:         {stats['poor_matches']}\n")
                 f.write(f"Tool Accuracy:        {stats['tool_accuracy']:.1f}%\n")
                 
-            print(f"✅ Category comparison saved to: {filename}")
+            logger.info(f"Category comparison saved to: {filename}")
             return filename
         except Exception as e:
-            print(f"❌ Failed to save category comparison: {e}")
+            logger.error(f"Failed to save category comparison: {e}")
             return None
     
     def save_results(self, report: Dict[str, Any], filename: str = None):
@@ -501,45 +510,45 @@ class AgentCategorizationEvaluator:
         try:
             with open(filename, 'w', encoding='utf-8') as f:
                 json.dump(report, f, indent=2, ensure_ascii=False)
-            print(f"✅ Evaluation results saved to: {filename}")
+            logger.info(f"Evaluation results saved to: {filename}")
             return filename
         except Exception as e:
-            print(f"❌ Failed to save results: {e}")
+            logger.error(f"Failed to save results: {e}")
             return None
     
     def print_summary(self, report: Dict[str, Any]):
         """Print evaluation summary"""
-        print("\n" + "=" * 60)
-        print("📊 EVALUATION SUMMARY")
-        print("=" * 60)
+        logger.info("\n" + "=" * 60)
+        logger.info("EVALUATION SUMMARY")
+        logger.info("=" * 60)
         
         stats = report['overall_statistics']
-        print(f"Total Agents Evaluated: {stats['total_agents']}")
-        print(f"Average Score: {stats['average_score']}")
-        print(f"Accuracy Rate: {stats['accuracy_percentage']}%")
-        print()
+        logger.info(f"Total Agents Evaluated: {stats['total_agents']}")
+        logger.info(f"Average Score: {stats['average_score']}")
+        logger.info(f"Accuracy Rate: {stats['accuracy_percentage']}%")
+        logger.info("")
         
-        print("📈 Performance Breakdown:")
-        print(f"  Excellent: {stats['excellent_categorizations']}")
-        print(f"  Good: {stats['good_categorizations']}")
-        print(f"  Partial: {stats['partial_categorizations']}")
-        print(f"  Poor: {stats['poor_categorizations']}")
-        print()
+        logger.info("Performance Breakdown:")
+        logger.info(f"  Excellent: {stats['excellent_categorizations']}")
+        logger.info(f"  Good: {stats['good_categorizations']}")
+        logger.info(f"  Partial: {stats['partial_categorizations']}")
+        logger.info(f"  Poor: {stats['poor_categorizations']}")
+        logger.info("")
         
         # Show individual results
-        print("🔍 Individual Results:")
-        print("-" * 50)
+        logger.info("Individual Results:")
+        logger.info("-" * 50)
         for result in report['agent_results']:
             if 'evaluation' in result:
                 eval_data = result['evaluation']
-                print(f"{result['agent_name']:25} | {eval_data['evaluation']:8} | {eval_data['overall_score']:.3f} | {eval_data['mapping_confidence']:.3f}")
+                logger.info(f"{result['agent_name']:25} | {eval_data['evaluation']:8} | {eval_data['overall_score']:.3f} | {eval_data['mapping_confidence']:.3f}")
         
         # Show recommendations
         if report['summary']['recommendations']:
-            print("\n💡 Recommendations:")
-            print("-" * 20)
+            logger.info("\nRecommendations:")
+            logger.info("-" * 20)
             for rec in report['summary']['recommendations']:
-                print(f"• {rec}")
+                logger.info(f"• {rec}")
 
 
 def main():
@@ -550,7 +559,7 @@ def main():
     report = evaluator.run_evaluation()
     
     if "error" in report:
-        print(f"❌ Evaluation failed: {report['error']}")
+        logger.error(f"Evaluation failed: {report['error']}")
         return
     
     # Save results
@@ -562,11 +571,11 @@ def main():
     # Print summary
     evaluator.print_summary(report)
     
-    print(f"\n🎉 Evaluation completed!")
-    print(f"📊 Results saved to: {filename}")
-    print(f"📋 Category comparison saved to: {comparison_filename}")
-    print(f"📁 Categories file updated: {evaluator.categorizer.categories_file}")
-    print(f"📈 Total categories available: {len(evaluator.categorizer.get_available_categories())}")
+    logger.info(f"\nEvaluation completed!")
+    logger.info(f"Results saved to: {filename}")
+    logger.info(f"Category comparison saved to: {comparison_filename}")
+    logger.info(f"Categories file updated: {evaluator.categorizer.categories_file}")
+    logger.info(f"Total categories available: {len(evaluator.categorizer.get_available_categories())}")
 
 
 if __name__ == "__main__":
