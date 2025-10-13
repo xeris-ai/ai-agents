@@ -70,7 +70,7 @@ def chat_with_agent(agent_key):
             if not user_message:
                 continue
 
-            logger.info(f"\n{agent_module.AGENT_CONFIG['name']}: ", end="", flush=True)
+            logger.info(f"\n{agent_module.AGENT_CONFIG['name']}: ")
 
             try:
                 response = invoke_bedrock_agent(
@@ -82,7 +82,7 @@ def chat_with_agent(agent_key):
 
             except Exception as e:
                 logger.error(f"Error calling Bedrock: {e}")
-                logger.error(f"\nError calling Bedrock: {e}")
+                logger.error(f"Error calling Bedrock: {e}")
             logger.info("")  # Empty line for readability
 
         except KeyboardInterrupt:
