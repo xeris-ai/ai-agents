@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 import logging
 import argparse
 import json
+from datetime import datetime
 
 # Configure logging
 logging.basicConfig(
@@ -49,6 +50,17 @@ class IntersectionResult(BaseModel):
     intersection_score: float = Field(..., description="Intersection score (0-1)")
     union_size: int = Field(..., description="Total unique categories")
     intersection_size: int = Field(..., description="Number of intersecting categories")
+
+class ComprehensiveOutput(BaseModel):
+    """Comprehensive output containing all analysis data"""
+    timestamp: str = Field(..., description="Analysis timestamp")
+    messages: List[Dict] = Field(..., description="Input messages")
+    system_prompt: str = Field(..., description="System prompt analyzed")
+    existing_categories: List[str] = Field(..., description="Available categories for classification")
+    messages_categorization: MessageAnalysis = Field(..., description="Message categorization result")
+    prompt_categorization: AgentAnalysis = Field(..., description="Prompt categorization result")
+    intersection_result: IntersectionResult = Field(..., description="Intersection analysis result")
+    analysis_summary: Dict = Field(..., description="Summary statistics")
 
 class AgentCategorizationIntersection:
     """Manages intersection between message and prompt categorizations"""
@@ -146,6 +158,41 @@ class AgentCategorizationIntersection:
             union_size=union_size,
             intersection_size=intersection_size
         )
+    
+    def create_comprehensive_output(
+        self,
+        messages: List[Dict],
+        system_prompt: str,
+        existing_categories: List[str],
+        intersection_result: IntersectionResult
+    ) -> ComprehensiveOutput:
+        """Create comprehensive output with all analysis data"""
+        timestamp = datetime.now().isoformat()
+        
+        # Create analysis summary
+        analysis_summary = {
+            "total_messages": len(messages),
+            "total_categories_available": len(existing_categories),
+            "messages_categories_count": len(intersection_result.messages_categories),
+            "prompt_categories_count": len(intersection_result.prompt_categories),
+            "intersection_categories_count": len(intersection_result.intersection_categories),
+            "messages_only_count": len(intersection_result.messages_only_categories),
+            "prompt_only_count": len(intersection_result.prompt_only_categories),
+            "intersection_score": intersection_result.intersection_score,
+            "union_size": intersection_result.union_size,
+            "intersection_size": intersection_result.intersection_size
+        }
+        
+        return ComprehensiveOutput(
+            timestamp=timestamp,
+            messages=messages,
+            system_prompt=system_prompt,
+            existing_categories=existing_categories,
+            messages_categorization=intersection_result.messages_analysis,
+            prompt_categorization=intersection_result.prompt_analysis,
+            intersection_result=intersection_result,
+            analysis_summary=analysis_summary
+        )
 
 def main():
     # Configure DSPy
@@ -157,8 +204,12 @@ def main():
     parser = argparse.ArgumentParser(description="Calculate intersection between message and prompt categorizations")
     parser.add_argument(
         "--messages",
-        required=True,
+        required=False,
         help="JSON string of messages list, where each message has 'role' and 'content' fields"
+    )
+    parser.add_argument(
+        "--messages-file",
+        help="JSON file containing messages list, where each message has 'role' and 'content' fields"
     )
     parser.add_argument(
         "--system-prompt",
@@ -171,13 +222,42 @@ def main():
         default=DEFAULT_CATEGORIES,
         help="List of categories to use for classification (defaults to built-in list)."
     )
+    parser.add_argument(
+        "--output-file",
+        help="File to save comprehensive analysis results as JSON"
+    )
 
     
     args = parser.parse_args()
     
+    # Validate that either messages or messages-file is provided
+    if not args.messages and not args.messages_file:
+        logger.error("Either --messages or --messages-file must be provided")
+        return
+    
+    if args.messages and args.messages_file:
+        logger.error("Cannot provide both --messages and --messages-file")
+        return
+    
     # Parse messages
     try:
-        messages = json.loads(args.messages)
+        if args.messages_file:
+            # Load messages from file
+            with open(args.messages_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            # Handle different file formats
+            if isinstance(data, dict) and 'messages' in data:
+                messages = data['messages']
+            elif isinstance(data, list):
+                messages = data
+            else:
+                logger.error("Invalid file format. Expected JSON with 'messages' key or array of messages")
+                return
+        else:
+            # Parse messages from command line
+            messages = json.loads(args.messages)
+        
         # Validate messages format
         if not isinstance(messages, list):
             logger.error("Messages must be a list of message objects")
@@ -194,7 +274,7 @@ def main():
         logger.info(f"Loaded {len(messages)} messages for analysis")
         
     except Exception as e:
-        logger.error(f"Failed to parse messages JSON: {e}")
+        logger.error(f"Failed to parse messages: {e}")
         return
     
     # Initialize intersection calculator
@@ -206,6 +286,14 @@ def main():
             messages=messages,
             system_prompt=args.system_prompt,
             existing_categories=args.categories
+        )
+        
+        # Create comprehensive output
+        comprehensive_output = intersection_calculator.create_comprehensive_output(
+            messages=messages,
+            system_prompt=args.system_prompt,
+            existing_categories=args.categories,
+            intersection_result=result
         )
         
         # Display results
@@ -246,6 +334,19 @@ def main():
         
         logger.info(f"\nDETAILED PROMPT ANALYSIS:")
         logger.info(result.prompt_analysis.model_dump_json(indent=2))
+        
+        # Save comprehensive output to file if requested
+        if args.output_file:
+            with open(args.output_file, 'w', encoding='utf-8') as f:
+                json.dump(comprehensive_output.model_dump(), f, indent=2, ensure_ascii=False)
+            logger.info(f"\n💾 Comprehensive results saved to: {args.output_file}")
+        else:
+            # Default output file with timestamp
+            timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+            default_output_file = f"intersection_analysis_{timestamp_str}.json"
+            with open(default_output_file, 'w', encoding='utf-8') as f:
+                json.dump(comprehensive_output.model_dump(), f, indent=2, ensure_ascii=False)
+            logger.info(f"\n💾 Comprehensive results saved to: {default_output_file}")
         
     except Exception as e:
         logger.error(f"Error during intersection calculation: {e}")
