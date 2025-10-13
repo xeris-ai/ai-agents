@@ -213,38 +213,38 @@ def main():
         logger.info("CATEGORIZATION INTERSECTION RESULTS")
         logger.info("="*70)
         
-        logger.info(f"\n📊 INTERSECTION STATISTICS:")
+        logger.info(f"\nINTERSECTION STATISTICS:")
         logger.info(f"  • Intersection Score: {result.intersection_score:.2f}")
         logger.info(f"  • Intersection Size: {result.intersection_size} categories")
         logger.info(f"  • Union Size: {result.union_size} categories")
         logger.info(f"  • Messages Categories: {len(result.messages_categories)}")
         logger.info(f"  • Prompt Categories: {len(result.prompt_categories)}")
         
-        logger.info(f"\n💬 MESSAGES CATEGORIES ({len(result.messages_categories)}):")
+        logger.info(f"\nMESSAGES CATEGORIES ({len(result.messages_categories)}):")
         for category in result.messages_categories:
             logger.info(f"  • {category}")
         
-        logger.info(f"\n📝 PROMPT CATEGORIES ({len(result.prompt_categories)}):")
+        logger.info(f"\nPROMPT CATEGORIES ({len(result.prompt_categories)}):")
         for category in result.prompt_categories:
             logger.info(f"  • {category}")
         
-        logger.info(f"\n🤝 INTERSECTION CATEGORIES ({len(result.intersection_categories)}):")
+        logger.info(f"\nINTERSECTION CATEGORIES ({len(result.intersection_categories)}):")
         for category in result.intersection_categories:
             logger.info(f"  • {category}")
         
-        logger.info(f"\n💬 MESSAGES ONLY ({len(result.messages_only_categories)}):")
+        logger.info(f"\nMESSAGES ONLY ({len(result.messages_only_categories)}):")
         for category in result.messages_only_categories:
             logger.info(f"  • {category}")
         
-        logger.info(f"\n📝 PROMPT ONLY ({len(result.prompt_only_categories)}):")
+        logger.info(f"\nPROMPT ONLY ({len(result.prompt_only_categories)}):")
         for category in result.prompt_only_categories:
             logger.info(f"  • {category}")
         
         # Display detailed analysis
-        logger.info(f"\n📋 DETAILED MESSAGES ANALYSIS:")
+        logger.info(f"\nDETAILED MESSAGES ANALYSIS:")
         logger.info(result.messages_analysis.model_dump_json(indent=2))
         
-        logger.info(f"\n📋 DETAILED PROMPT ANALYSIS:")
+        logger.info(f"\nDETAILED PROMPT ANALYSIS:")
         logger.info(result.prompt_analysis.model_dump_json(indent=2))
         
     except Exception as e:
