@@ -15,7 +15,7 @@ from datetime import datetime
 # Add the parent directory to path to import our agents
 sys.path.insert(0, str(Path(__file__).parent))
 
-from agent_categorizer import AgentCategorizer
+from agent_categorizer_prompts import AgentCategorizer
 from agents import list_agents, get_agent
 
 # Configure logging
