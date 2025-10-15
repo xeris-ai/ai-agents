@@ -4,7 +4,7 @@ Agent Message Categorization System using DSPy
 Analyzes conversation messages and categorizes them with self-learning capabilities
 """
 import json
-from typing import List
+from typing import List, Dict
 import dspy
 from pydantic import BaseModel, Field, ValidationError
 import logging
@@ -34,17 +34,15 @@ DEFAULT_CATEGORIES = [
 
 # 1) Structured schema you want back
 class MessageAnalysis(BaseModel):
-    categories: List[str] = Field(..., description="High-confidence categories (>90%)")
-    conversation_type: str = Field(..., description="Type of conversation (e.g., 'support', 'research', 'general')")
-    has_tools: bool = Field(..., description="Whether the conversation involves tool usage")
+    categories: List[str] = Field(..., description="High-confidence categories (>80%)")
+    category_statistics: Dict[str, float] = Field(..., description="Dictionary mapping ALL provided categories to their percentage of messages (0.0 to 100.0).")
     reasoning: str = Field(..., description="Explanation of the categorization")
 
 # 2) Define a "schema tool": the LM will call this with JSON args we want.
 #    Body won't actually run; we just harvest the call args.
 def _emit_message_analysis(
     categories: List[str],
-    conversation_type: str,
-    has_tools: bool,
+    category_statistics: Dict[str, float],
     reasoning: str,
 ) -> str:
     """Emit a MessageAnalysis (used purely for function-calling argument collection)."""
@@ -53,13 +51,13 @@ def _emit_message_analysis(
 schema_tool = dspy.Tool(
     _emit_message_analysis,
     name="categorize_messages",
-    desc="Return fields: categories, conversation_type, has_tools, reasoning (as a MessageAnalysis)."
+    desc="Categorize messages. CRITICAL: categories must ONLY be selected from the provided existing_categories list. MANDATORY FIELDS: categories (list of strings from existing_categories), category_statistics (REQUIRED: dict mapping ALL provided categories to their percentage 0.0-100.0, unused categories show 0.0), reasoning (string). You MUST provide category_statistics with ALL categories from existing_categories."
 )
 
 # 3) Signature that asks the LM to produce TOOL CALLS (not free text)
 class MessageCategorizationSignature(dspy.Signature):
     messages: str = dspy.InputField(desc="Conversation messages to analyze.")
-    existing_categories: List[str] = dspy.InputField(desc="Known category labels.")
+    existing_categories: List[str] = dspy.InputField(desc="STRICT: Only choose categories from this exact list. If no match, use 'other'. You MUST provide category_statistics for ALL these categories.")
     tools: List[dspy.Tool] = dspy.InputField(desc="Available tools for categorization.")
     # The model returns a list of tool calls; we'll read the first one.
     outputs: dspy.ToolCalls = dspy.OutputField()
@@ -74,7 +72,8 @@ class MessageCategorizer(dspy.Module):
     def _format_messages_for_analysis(self, messages: List[dict]) -> str:
         """Format messages into a readable string for analysis."""
         formatted_messages = []
-        
+        messages = [m for m in messages if m["role"] == "user"]
+
         for message in messages:
             role = message.get("role", "unknown")
             content = message.get("content", [])
@@ -97,10 +96,14 @@ class MessageCategorizer(dspy.Module):
         
         # Format messages for analysis
         formatted_messages = self._format_messages_for_analysis(messages)
+        
+        # Add 'other' category to the list of available categories
+        categories_with_other = existing_categories + ["other"]
+        
         try:
             pred = self.predict(
                 messages=formatted_messages,
-                existing_categories=existing_categories,
+                existing_categories=categories_with_other,
                 tools=[schema_tool], 
             )
         except Exception as e:
@@ -119,6 +122,9 @@ class MessageCategorizer(dspy.Module):
 
         # These are the JSON args from the model
         args = call.args  # <-- dict
+        
+      
+        
         try:
             results.append(MessageAnalysis(**args))  # Pydantic validation
         except ValidationError as e:
