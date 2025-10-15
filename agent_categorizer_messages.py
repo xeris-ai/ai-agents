@@ -72,7 +72,6 @@ class MessageCategorizer(dspy.Module):
     def _format_messages_for_analysis(self, messages: List[dict]) -> str:
         """Format messages into a readable string for analysis."""
         formatted_messages = []
-        messages = [m for m in messages if m["role"] == "user"]
 
         for message in messages:
             role = message.get("role", "unknown")
@@ -134,12 +133,6 @@ class MessageCategorizer(dspy.Module):
 
 
 def main():
-    # Configure DSPy to use native function calling
-    dspy.configure(
-        lm=dspy.LM(model="bedrock/anthropic.claude-3-5-haiku-20241022-v1:0"),
-        adapter=dspy.ChatAdapter(use_native_function_calling=True),
-    )
-    
     parser = argparse.ArgumentParser(description="Message Categorization with Native Function Calling")
    
     parser.add_argument(
@@ -155,6 +148,14 @@ def main():
     
     
     args = parser.parse_args()
+    
+    # Configure DSPy to use native function calling with specified temperature
+    dspy.configure(
+        lm=dspy.LM(
+            model="bedrock/anthropic.claude-3-5-haiku-20241022-v1:0"
+        ),
+        adapter=dspy.ChatAdapter(use_native_function_calling=True),
+    )
     
     if not args.messages:
         logger.error("Please provide --messages")

@@ -37,9 +37,7 @@ class MessageCategorizationResult(BaseModel):
     message_categories: List[str] = Field(..., description="Categories assigned to the messages")
     category_statistics: Dict[str, float] = Field(..., description="Dictionary mapping ALL categories to their percentage of messages (0.0 to 100.0)")
     reasoning: str = Field(..., description="Explanation of the categorization")
-    other_category_used: bool = Field(..., description="Whether 'other' category was assigned for messages not matching any specific category")
-    other_percentage: float = Field(..., description="Percentage of messages categorized as other (0.0 to 100.0)")
-
+    count_other: int = Field(..., description="Number of messages categorized as other")
 class ComprehensiveCategorizationResult(BaseModel):
     """Comprehensive result containing both category extraction and message categorization"""
     timestamp: str = Field(..., description="Analysis timestamp")
@@ -102,7 +100,8 @@ class AgentCategorizerIntersectionCategoriesPrompt:
     def categorize_messages_with_extracted_categories(
         self, 
         messages: List[Dict], 
-        extracted_categories: List[str]
+        extracted_categories: List[str],
+        only_user_content: bool = False
     ) -> MessageCategorizationResult:
         """
         Categorize messages using the extracted categories from the system prompt
@@ -120,6 +119,11 @@ class AgentCategorizerIntersectionCategoriesPrompt:
         categories_with_other = extracted_categories + ["other"]
         
         try:
+            if only_user_content:
+                messages = [m for m in messages if m["role"] == "user"]
+            count_other = sum(1 for m in messages if m["role"] == "user" and m.get("category").lower() == "other")
+
+
             # Use the message agent to categorize messages
             messages_results = self.message_agent.forward(
                 messages=messages,
@@ -132,15 +136,11 @@ class AgentCategorizerIntersectionCategoriesPrompt:
             
             message_categories = messages_analysis.categories
             category_statistics = getattr(messages_analysis, 'category_statistics', {})
-            other_category_used = "other" in message_categories
             
             # Get other percentage from category_statistics if available
-            other_percentage = category_statistics.get("other", 0.0)
             
             logger.info(f"Categorized messages with {len(message_categories)} categories")
             logger.info(f"Category statistics: {category_statistics}")
-            if other_category_used:
-                logger.info(f"'other' category percentage: {other_percentage:.1f}%")
             
             return MessageCategorizationResult(
                 messages=messages,
@@ -148,8 +148,7 @@ class AgentCategorizerIntersectionCategoriesPrompt:
                 message_categories=message_categories,
                 category_statistics=category_statistics,
                 reasoning=messages_analysis.reasoning,
-                other_category_used=other_category_used,
-                other_percentage=other_percentage
+                count_other=count_other
             )
             
         except Exception as e:
@@ -157,7 +156,6 @@ class AgentCategorizerIntersectionCategoriesPrompt:
             # Fallback: return basic categorization
             # Calculate percentage for error case (all messages are other)
             total_messages = len(messages)
-            other_percentage = 100.0 if total_messages > 0 else 0.0
             
             # Create category_statistics for error case
             error_category_statistics = {}
@@ -170,8 +168,6 @@ class AgentCategorizerIntersectionCategoriesPrompt:
                 message_categories=["other"],
                 category_statistics=error_category_statistics,
                 reasoning=f"Error during categorization: {str(e)}",
-                other_category_used=True,
-                other_percentage=other_percentage
             )
     
     def process_complete_analysis(
@@ -197,7 +193,7 @@ class AgentCategorizerIntersectionCategoriesPrompt:
         
         # Step 2: Categorize messages using extracted categories
         message_categorization = self.categorize_messages_with_extracted_categories(
-            messages, category_extraction.extracted_categories
+            messages, category_extraction.extracted_categories, True
         )
         
         # Create analysis summary
@@ -206,8 +202,6 @@ class AgentCategorizerIntersectionCategoriesPrompt:
             "extracted_categories_count": len(category_extraction.extracted_categories),
             "message_categories_count": len(message_categorization.message_categories),
             "category_statistics": message_categorization.category_statistics,
-            "other_category_used": message_categorization.other_category_used,
-            "other_percentage": message_categorization.other_percentage,
         }
         
         timestamp = datetime.now().isoformat()
@@ -224,6 +218,7 @@ def main():
     dspy.configure(
         lm=dspy.LM(model="bedrock/anthropic.claude-3-5-haiku-20241022-v1:0"),
         adapter=dspy.ChatAdapter(use_native_function_calling=True),
+    
     )
     
     parser = argparse.ArgumentParser(description="Extract categories from agent prompts and categorize messages")
