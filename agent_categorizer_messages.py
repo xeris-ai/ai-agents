@@ -51,7 +51,7 @@ def _emit_message_analysis(
 schema_tool = dspy.Tool(
     _emit_message_analysis,
     name="categorize_messages",
-    desc="Categorize messages. CRITICAL: categories must ONLY be selected from the provided existing_categories list. MANDATORY FIELDS: categories (list of strings from existing_categories), category_statistics (REQUIRED: dict mapping ALL provided categories to their percentage 0.0-100.0, unused categories show 0.0), reasoning (string). You MUST provide category_statistics with ALL categories from existing_categories."
+    desc="Categorize EACH INDIVIDUAL MESSAGE. CRITICAL: categories must ONLY be selected from the provided existing_categories list. Count each message separately. MANDATORY FIELDS: categories (list of strings from existing_categories), category_statistics (REQUIRED: dict mapping ALL provided categories to their percentage 0.0-100.0 based on individual message counts, unused categories show 0.0), reasoning (string). You MUST provide category_statistics with ALL categories from existing_categories."
 )
 
 # 3) Signature that asks the LM to produce TOOL CALLS (not free text)
@@ -72,8 +72,8 @@ class MessageCategorizer(dspy.Module):
     def _format_messages_for_analysis(self, messages: List[dict]) -> str:
         """Format messages into a readable string for analysis."""
         formatted_messages = []
-
-        for message in messages:
+        
+        for i, message in enumerate(messages, 1):
             role = message.get("role", "unknown")
             content = message.get("content", [])
             
@@ -86,15 +86,20 @@ class MessageCategorizer(dspy.Module):
             elif isinstance(content, str):
                 text_content = content
             
-            formatted_messages.append(f"{role.upper()}: {text_content.strip()}")
+            # Format with clear message numbering and separation
+            formatted_messages.append(f"MESSAGE {i} - {role.upper()}: {text_content.strip()}")
         
-        return "\n".join(formatted_messages)
+        return "\n\n".join(formatted_messages)
 
     def forward(self, messages: List[dict], existing_categories: List[str]) -> List[MessageAnalysis]:
         results: List[MessageAnalysis] = []
         
         # Format messages for analysis
         formatted_messages = self._format_messages_for_analysis(messages)
+        
+        # Debug logging
+        logger.info(f"Processing {len(messages)} messages for categorization")
+        logger.info(f"Formatted messages preview: {formatted_messages[:200]}...")
         
         # Add 'other' category to the list of available categories
         categories_with_other = existing_categories + ["other"]

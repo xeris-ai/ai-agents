@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 import logging
 import argparse
 import json
+import os
 from datetime import datetime
 
 # Configure logging
@@ -68,6 +69,9 @@ class AgentCategorizerIntersectionCategoriesPrompt:
 
         
         try:
+            logger.info(f"Calling prompt_agent.forward with {len(categories)} categories")
+            logger.info(f"System prompt length: {len(system_prompt)}")
+            
             prompt_results = self.prompt_agent.forward(
                 system_prompt=[system_prompt],
                 existing_categories=categories
@@ -90,6 +94,9 @@ class AgentCategorizerIntersectionCategoriesPrompt:
             
         except Exception as e:
             logger.error(f"Error extracting categories from prompt: {e}")
+            logger.error(f"Exception type: {type(e)}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             # Fallback: return empty categories
             return CategoryExtractionResult(
                 extracted_categories=[],
@@ -174,7 +181,8 @@ class AgentCategorizerIntersectionCategoriesPrompt:
         self, 
         messages: List[Dict], 
         system_prompt: str, 
-        categories: List[str]
+        categories: List[str], 
+        only_user_content: bool = False
     ) -> ComprehensiveCategorizationResult:
         """
         Complete analysis: extract categories from prompt and categorize messages
@@ -193,7 +201,7 @@ class AgentCategorizerIntersectionCategoriesPrompt:
         
         # Step 2: Categorize messages using extracted categories
         message_categorization = self.categorize_messages_with_extracted_categories(
-            messages, category_extraction.extracted_categories, True
+            messages, category_extraction.extracted_categories, only_user_content
         )
         
         # Create analysis summary
@@ -218,6 +226,7 @@ def main():
     dspy.configure(
         lm=dspy.LM(model="bedrock/anthropic.claude-3-5-haiku-20241022-v1:0"),
         adapter=dspy.ChatAdapter(use_native_function_calling=True),
+        temperature=0.4,
     
     )
     
@@ -246,19 +255,25 @@ def main():
         help="File to save comprehensive analysis results as JSON"
     )
     
-    args = parser.parse_args()
-    
-    # Validate that either messages or messages-file is provided
-    if not args.messages and not args.messages_file:
-        logger.error("Either --messages or --messages-file must be provided")
-        return
-    
-    if args.messages and args.messages_file:
-        logger.error("Cannot provide both --messages and --messages-file")
-        return
+    parser.add_argument(
+        "--only-user-content",
+        action="store_true",
+        help="Only use user content for categorization"
+    )
+    try:
+        args = parser.parse_args()
+        
+        # Validate that either messages or messages-file is provided
+        if not args.messages and not args.messages_file:
+            logger.error("Either --messages or --messages-file must be provided")
+            return
+        
+        if args.messages and args.messages_file:
+            logger.error("Cannot provide both --messages and --messages-file")
+            return
     
     # Parse messages
-    try:
+   
         if args.messages_file:
             # Load messages from file
             with open(args.messages_file, 'r', encoding='utf-8') as f:
@@ -303,7 +318,8 @@ def main():
         result = categorizer.process_complete_analysis(
             messages=messages,
             system_prompt=args.system_prompt,
-            categories=args.categories
+            categories=args.categories,
+            only_user_content=args.only_user_content
         )
 
         
@@ -313,9 +329,12 @@ def main():
                 json.dump(result.model_dump(), f, indent=2, ensure_ascii=False)
             logger.info(f"\n💾 Comprehensive results saved to: {args.output_file}")
         else:
-            # Default output file with timestamp
+            # Default output file with timestamp and messages file name
             timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-            default_output_file = f"categorization_analysis_{timestamp_str}.json"
+            
+            messages_filename = os.path.splitext(os.path.basename(args.messages_file))[0]
+            default_output_file = f"categorizer_reports/categorization_analysis_{messages_filename}_{timestamp_str}.json"
+            
             with open(default_output_file, 'w', encoding='utf-8') as f:
                 json.dump(result.model_dump(), f, indent=2, ensure_ascii=False)
             logger.info(f"\n💾 Comprehensive results saved to: {default_output_file}")
