@@ -227,7 +227,6 @@ def main():
         lm=dspy.LM(model="bedrock/anthropic.claude-3-5-haiku-20241022-v1:0"),
         adapter=dspy.ChatAdapter(use_native_function_calling=True),
         temperature=0.4,
-    
     )
     
     parser = argparse.ArgumentParser(description="Extract categories from agent prompts and categorize messages")

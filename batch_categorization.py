@@ -113,6 +113,11 @@ def run_categorization(messages_file, system_prompt, only_user_content, output_s
         else:
             output_suffix += "_user_and_assistant_content"
         
+        # Create output filename with content type
+        messages_filename = Path(messages_file).stem
+        output_filename = f"categorizer_reports/categorization_analysis_{messages_filename}{output_suffix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        cmd.extend(["--output-file", output_filename])
+        
         logger.info(f"Running: {' '.join(cmd)}")
         
         # Run the command
@@ -150,31 +155,33 @@ def main():
     total_runs = len(json_files) * 2  # Each file runs twice (user-only and user+assistant)
     
     for json_file in json_files:
-        logger.info(f"\n📄 Processing {json_file.name}...")
+        if json_file.name == "50_non_HR_messages.json" or json_file.name == "50_HR_messages.json":
+            
+            logger.info(f"\n📄 Processing {json_file.name}...")
+            
+            # Get appropriate system prompt
+            system_prompt = get_system_prompt_for_file(json_file.name)
+            logger.info(f"Using system prompt for: {'HR' if 'hr' in json_file.name.lower() else 'Bank'}")
+            
+            # Run with only user content
+            logger.info("Running with only user content...")
+            if run_categorization(str(json_file), system_prompt, True, f"_{json_file.stem}"):
+                successful_runs += 1
+            
+            # Run with user and assistant content
+            logger.info("🔄 Running with user and assistant content...")
+            if run_categorization(str(json_file), system_prompt, False, f"_{json_file.stem}"):
+                successful_runs += 1
         
-        # Get appropriate system prompt
-        system_prompt = get_system_prompt_for_file(json_file.name)
-        logger.info(f"Using system prompt for: {'HR' if 'hr' in json_file.name.lower() else 'Bank'}")
+        # Summary
+        logger.info(f"\nBatch processing complete!")
+        logger.info(f"Successful runs: {successful_runs}/{total_runs}")
+        logger.info(f"Failed runs: {total_runs - successful_runs}/{total_runs}")
         
-        # Run with only user content
-        logger.info("Running with only user content...")
-        if run_categorization(str(json_file), system_prompt, True, f"_{json_file.stem}"):
-            successful_runs += 1
-        
-        # Run with user and assistant content
-        logger.info("🔄 Running with user and assistant content...")
-        if run_categorization(str(json_file), system_prompt, False, f"_{json_file.stem}"):
-            successful_runs += 1
-    
-    # Summary
-    logger.info(f"\nBatch processing complete!")
-    logger.info(f"Successful runs: {successful_runs}/{total_runs}")
-    logger.info(f"Failed runs: {total_runs - successful_runs}/{total_runs}")
-    
-    if successful_runs == total_runs:
-        logger.info("🎉 All categorizations completed successfully!")
-    else:
-        logger.warning("⚠️ Some categorizations failed. Check the logs above for details.")
+        if successful_runs == total_runs:
+            logger.info("🎉 All categorizations completed successfully!")
+        else:
+            logger.warning("⚠️ Some categorizations failed. Check the logs above for details.")
 
 if __name__ == "__main__":
     main()
