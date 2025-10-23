@@ -75,7 +75,8 @@ def load_categorization_results():
 
 def extract_source_file(filename):
     """Extract source file name from result filename."""
-    # Example: categorization_analysis_10_HR_messages_20251015_170500_only_user_content.json
+    # Example: categorization_analysis_10_HR_messages_20251015_170500_user_only.json
+    # Example: categorization_analysis_50_non_HR_messages_only_assistant_content_20251016_181138.json
     # Extract: 10_HR_messages
     parts = filename.replace('categorization_analysis_', '').split('_')
     if len(parts) >= 3:
@@ -83,11 +84,21 @@ def extract_source_file(filename):
     return 'unknown'
 
 def extract_content_type(filename):
-    """Extract content type (only_user_content or user_and_assistant_content)."""
-    if 'only_user_content' in filename:
-        return 'only_user_content'
+    """Extract content type from filename."""
+    # New filename patterns
+    if 'only_assistant_content' in filename:
+        return 'assistant_only'
+    elif 'only_user_content' in filename:
+        return 'user_only'
     elif 'user_and_assistant_content' in filename:
-        return 'user_and_assistant_content'
+        return 'user_and_assistant'
+    # Legacy patterns for backward compatibility
+    elif 'user_only' in filename:
+        return 'user_only'
+    elif 'assistant_only' in filename:
+        return 'assistant_only'
+    elif 'user_and_assistant' in filename:
+        return 'user_and_assistant'
     return 'unknown'
 
 def extract_agent_type(filename):
@@ -172,30 +183,61 @@ def generate_comparison_report(df):
                     if pd.notna(percentage) and percentage > 0:
                         print(f"      {category}: {percentage}%")
     
-    # Comparison between only_user_content vs user_and_assistant_content
-    print(f"\n🔄 COMPARISON: ONLY USER vs USER+ASSISTANT:")
+    # Comparison between different content types
+    print(f"\n🔄 COMPARISON: USER vs ASSISTANT vs BOTH:")
     print("-" * 80)
     
     for source_file in df['source_file'].unique():
         file_data = df[df['source_file'] == source_file]
-        if len(file_data) == 2:  # Both content types available
-            user_only = file_data[file_data['content_type'] == 'only_user_content'].iloc[0]
-            user_assistant = file_data[file_data['content_type'] == 'user_and_assistant_content'].iloc[0]
-            
+        content_types = file_data['content_type'].unique()
+        
+        if len(content_types) >= 2:  # At least two content types available
             print(f"\n{source_file}:")
-            print(f"  Only User Content:")
-            print(f"    Categories Used: {user_only['categories_used']}")
-            print(f"    Message Categories: {user_only['message_categories']}")
-            print(f"    Count Other: {user_only['count_other']}")
             
-            print(f"  User + Assistant Content:")
-            print(f"    Categories Used: {user_assistant['categories_used']}")
-            print(f"    Message Categories: {user_assistant['message_categories']}")
-            print(f"    Count Other: {user_assistant['count_other']}")
+            # Show each content type
+            for content_type in ['user_only', 'assistant_only', 'user_and_assistant']:
+                if content_type in content_types:
+                    data = file_data[file_data['content_type'] == content_type].iloc[0]
+                    print(f"  {content_type.replace('_', ' ').title()}:")
+                    print(f"    Categories Used: {data['categories_used']}")
+                    print(f"    Message Categories: {data['message_categories']}")
+                    print(f"    Count Other: {data['count_other']}")
+                    print(f"    Total Messages: {data['total_messages']}")
+                    
+                    # Show category statistics
+                    stat_cols = [col for col in data.index if col.startswith('stat_')]
+                    if stat_cols:
+                        print(f"    Category Statistics:")
+                        for col in stat_cols:
+                            category = col.replace('stat_', '')
+                            percentage = data[col]
+                            if pd.notna(percentage) and percentage > 0:
+                                print(f"      {category}: {percentage}%")
+                    print()
             
-            # Compare count_other
-            other_diff = user_assistant['count_other'] - user_only['count_other']
-            print(f"  📈 Other Count Difference: {other_diff} ({user_assistant['count_other']} vs {user_only['count_other']})")
+            # Show comparisons if we have multiple content types
+            if len(content_types) >= 2:
+                print(f"  📊 COMPARISONS:")
+                content_data = {}
+                for content_type in content_types:
+                    content_data[content_type] = file_data[file_data['content_type'] == content_type].iloc[0]
+                
+                # Compare count_other between different content types
+                if 'user_only' in content_data and 'assistant_only' in content_data:
+                    user_other = content_data['user_only']['count_other']
+                    assistant_other = content_data['assistant_only']['count_other']
+                    print(f"    User vs Assistant Other Count: {user_other} vs {assistant_other} (diff: {assistant_other - user_other})")
+                
+                if 'user_only' in content_data and 'user_and_assistant' in content_data:
+                    user_other = content_data['user_only']['count_other']
+                    both_other = content_data['user_and_assistant']['count_other']
+                    print(f"    User vs Both Other Count: {user_other} vs {both_other} (diff: {both_other - user_other})")
+                
+                if 'assistant_only' in content_data and 'user_and_assistant' in content_data:
+                    assistant_other = content_data['assistant_only']['count_other']
+                    both_other = content_data['user_and_assistant']['count_other']
+                    print(f"    Assistant vs Both Other Count: {assistant_other} vs {both_other} (diff: {both_other - assistant_other})")
+                print()
 
 def save_detailed_comparison(df):
     """Save detailed comparison to CSV and JSON files."""

@@ -78,7 +78,7 @@ def get_system_prompt_for_file(filename):
         logger.warning(f"Could not determine system prompt for {filename}, using HR default")
         return HR_SYSTEM_PROMPT
 
-def run_categorization(messages_file, system_prompt, only_user_content, output_suffix=""):
+def run_categorization(messages_file, system_prompt, content_filter, output_suffix=""):
     """Run categorization for a single configuration."""
     try:
         # Ensure system_prompt is a string
@@ -107,11 +107,16 @@ def run_categorization(messages_file, system_prompt, only_user_content, output_s
             "troubleshooting"
         ]
         
-        if only_user_content:
-            cmd.append("--only-user-content")
-            output_suffix += "_only_user_content"
-        else:
-            output_suffix += "_user_and_assistant_content"
+        # Add content filter argument
+        cmd.extend(["--content-filter", content_filter])
+        
+        # Update output suffix based on content filter
+        if content_filter == "user":
+            output_suffix += "_user_only"
+        elif content_filter == "assistant":
+            output_suffix += "_assistant_only"
+        else:  # content_filter == "both"
+            output_suffix += "_user_and_assistant"
         
         # Create output filename with content type
         messages_filename = Path(messages_file).stem
@@ -124,10 +129,10 @@ def run_categorization(messages_file, system_prompt, only_user_content, output_s
         result = subprocess.run(cmd, capture_output=True, text=True, cwd=".")
         
         if result.returncode == 0:
-            logger.info(f"✅ Successfully processed {messages_file} (only_user_content={only_user_content})")
+            logger.info(f"✅ Successfully processed {messages_file} (content_filter={content_filter})")
             return True
         else:
-            logger.error(f"❌ Failed to process {messages_file} (only_user_content={only_user_content})")
+            logger.error(f"❌ Failed to process {messages_file} (content_filter={content_filter})")
             logger.error(f"Error: {result.stderr}")
             return False
             
@@ -152,7 +157,7 @@ def main():
     
     # Process each file
     successful_runs = 0
-    total_runs = len(json_files) * 2  # Each file runs twice (user-only and user+assistant)
+    total_runs = len(json_files) * 3  # Each file runs three times (user-only, assistant-only, and both)
     
     for json_file in json_files:
         if json_file.name == "50_non_HR_messages.json" or json_file.name == "50_HR_messages.json":
@@ -164,14 +169,19 @@ def main():
             logger.info(f"Using system prompt for: {'HR' if 'hr' in json_file.name.lower() else 'Bank'}")
             
             # Run with only user content
-            logger.info("Running with only user content...")
-            if run_categorization(str(json_file), system_prompt, True, f"_{json_file.stem}"):
+            # logger.info("🔄 Running with user content only...")
+            # if run_categorization(str(json_file), system_prompt, "user", f"_{json_file.stem}"):
+            #     successful_runs += 1
+            
+            # Run with only assistant content
+            logger.info("🔄 Running with assistant content only...")
+            if run_categorization(str(json_file), system_prompt, "assistant", f"_{json_file.stem}"):
                 successful_runs += 1
             
-            # Run with user and assistant content
-            logger.info("🔄 Running with user and assistant content...")
-            if run_categorization(str(json_file), system_prompt, False, f"_{json_file.stem}"):
-                successful_runs += 1
+            # # Run with both user and assistant content
+            # logger.info("🔄 Running with both user and assistant content...")
+            # if run_categorization(str(json_file), system_prompt, "both", f"_{json_file.stem}"):
+            #     successful_runs += 1
         
         # Summary
         logger.info(f"\nBatch processing complete!")

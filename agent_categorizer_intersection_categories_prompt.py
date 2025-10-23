@@ -108,7 +108,7 @@ class AgentCategorizerIntersectionCategoriesPrompt:
         self, 
         messages: List[Dict], 
         extracted_categories: List[str],
-        only_user_content: bool = False
+        content_filter: str = "both"
     ) -> MessageCategorizationResult:
         """
         Categorize messages using the extracted categories from the system prompt
@@ -126,9 +126,17 @@ class AgentCategorizerIntersectionCategoriesPrompt:
         categories_with_other = extracted_categories + ["other"]
         
         try:
-            if only_user_content:
+            # Filter messages based on content_filter
+            if content_filter == "user":
                 messages = [m for m in messages if m["role"] == "user"]
-            count_other = sum(1 for m in messages if m["role"] == "user" and m.get("category").lower() == "other")
+                logger.info(f"Filtered to {len(messages)} user messages only")
+            elif content_filter == "assistant":
+                messages = [m for m in messages if m["role"] == "assistant"]
+                logger.info(f"Filtered to {len(messages)} assistant messages only")
+            else:  # content_filter == "both"
+                logger.info(f"Using all {len(messages)} messages (user and assistant)")
+            
+            count_other = sum(1 for m in messages if m["role"] == "user" and m.get("category", "").lower() == "other")
 
 
             # Use the message agent to categorize messages
@@ -182,7 +190,7 @@ class AgentCategorizerIntersectionCategoriesPrompt:
         messages: List[Dict], 
         system_prompt: str, 
         categories: List[str], 
-        only_user_content: bool = False
+        content_filter: str = "both"
     ) -> ComprehensiveCategorizationResult:
         """
         Complete analysis: extract categories from prompt and categorize messages
@@ -201,7 +209,7 @@ class AgentCategorizerIntersectionCategoriesPrompt:
         
         # Step 2: Categorize messages using extracted categories
         message_categorization = self.categorize_messages_with_extracted_categories(
-            messages, category_extraction.extracted_categories, only_user_content
+            messages, category_extraction.extracted_categories, content_filter
         )
         
         # Create analysis summary
@@ -247,6 +255,7 @@ def main():
     parser.add_argument(
         "--categories",
         nargs="*",
+        default=[],
         help="List of categories to use for classification (defaults to built-in list)."
     )
     parser.add_argument(
@@ -255,9 +264,10 @@ def main():
     )
     
     parser.add_argument(
-        "--only-user-content",
-        action="store_true",
-        help="Only use user content for categorization"
+        "--content-filter",
+        choices=["user", "assistant", "both"],
+        default="assistant",
+        help="Filter messages by role: 'user' (only user messages), 'assistant' (only assistant messages), or 'both' (all messages). Default: both"
     )
     try:
         args = parser.parse_args()
@@ -313,12 +323,27 @@ def main():
     categorizer = AgentCategorizerIntersectionCategoriesPrompt()
     
     try:
+        # Use default categories if none provided
+        categories = args.categories if args.categories else [
+            "customer support", "technical support", "sales", "marketing", "finance",
+            "healthcare", "education", "legal", "devops", "data analysis",
+            "content creation", "assistant", "chatbot", "automation", "security",
+            "research", "translation", "summarization", "code review", "travel planning",
+            "DevOps", "HR", "IT support", "appointment scheduling", "bank advisor",
+            "banking", "content processing", "conversational AI", "e-commerce",
+            "employee assistant", "financial advisor", "financial services",
+            "general chatbot", "human resources", "infrastructure", "investment",
+            "medical assistant", "quality assurance", "retail", "shopping assistant",
+            "software development", "tourism", "travel planner", "trip planning",
+            "troubleshooting"
+        ]
+        
         # Perform complete analysis
         result = categorizer.process_complete_analysis(
             messages=messages,
             system_prompt=args.system_prompt,
-            categories=args.categories,
-            only_user_content=args.only_user_content
+            categories=categories,
+            content_filter=args.content_filter
         )
 
         
